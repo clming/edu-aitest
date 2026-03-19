@@ -22,6 +22,13 @@ function testCommit() {
   console.log("✅ 测试通过！");
   console.log("");
   
+  // 🐛 BUG: 这里故意制造一个除零错误
+  const testValue = 100 / 0;
+  console.log(`测试值：${testValue}`);
+  
+  // 🐛 BUG: 这里故意访问未定义的变量
+  console.log(`未定义变量：${undefinedVariable}`);
+  
   return {
     success: true,
     message: message,

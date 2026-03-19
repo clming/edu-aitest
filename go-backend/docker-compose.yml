@@ -1,0 +1,87 @@
+version: '3.8'
+
+services:
+  # PostgreSQL 数据库
+  postgres:
+    image: postgres:15-alpine
+    container_name: edu-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: edu_assistant
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - edu-network
+
+  # Redis 缓存
+  redis:
+    image: redis:7-alpine
+    container_name: edu-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - edu-network
+
+  # 后端服务
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: edu-backend
+    ports:
+      - "8080:8080"
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/edu_assistant?sslmode=disable
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: edu-assistant-secret-key-2026
+      PORT: 8080
+      ENV: production
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./logs:/app/logs
+    networks:
+      - edu-network
+    restart: unless-stopped
+
+  # Swagger UI（可选）
+  swagger:
+    image: swaggerapi/swagger-ui:latest
+    container_name: edu-swagger
+    ports:
+      - "8081:8080"
+    environment:
+      SWAGGER_JSON: /app/docs/swagger.json
+    volumes:
+      - ./docs:/app/docs
+    depends_on:
+      - backend
+    networks:
+      - edu-network
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  edu-network:
+    driver: bridge

@@ -2,6 +2,8 @@ package middleware
 
 import (
 	"net/http"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -56,8 +58,8 @@ func Recovery() gin.HandlerFunc {
 // JWTAuth JWT 认证中间件
 func JWTAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		tokenString := c.GetHeader("Authorization")
-		if tokenString == "" {
+		authHeader := c.GetHeader("Authorization")
+		if authHeader == "" {
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"error": "缺少认证令牌",
 			})
@@ -65,9 +67,27 @@ func JWTAuth() gin.HandlerFunc {
 			return
 		}
 
+		// 移除 "Bearer " 前缀
+		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
+		if tokenString == authHeader {
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"error": "认证令牌格式错误",
+			})
+			c.Abort()
+			return
+		}
+
+		secret := os.Getenv("JWT_SECRET")
+		if secret == "" {
+			secret = "edu-assistant-secret-key-2026"
+		}
+
 		// 验证 token
 		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-			return []byte("edu-assistant-secret-key-2026"), nil
+			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+				return nil, jwt.ErrSignatureInvalid
+			}
+			return []byte(secret), nil
 		})
 
 		if err != nil || !token.Valid {
@@ -78,6 +98,27 @@ func JWTAuth() gin.HandlerFunc {
 			return
 		}
 
+		// 提取 claims
+		if claims, ok := token.Claims.(jwt.MapClaims); ok {
+			if userID, ok := claims["user_id"].(float64); ok {
+				c.Set("user_id", uint(userID))
+			}
+			if username, ok := claims["username"].(string); ok {
+				c.Set("username", username)
+			}
+			if role, ok := claims["role"].(string); ok {
+				c.Set("role", role)
+			}
+		}
+
 		c.Next()
 	}
+}
+
+// GetUserIDFromToken 从 context 中获取用户 ID
+func GetUserIDFromToken(c *gin.Context) uint {
+	if userID, exists := c.Get("user_id"); exists {
+		return userID.(uint)
+	}
+	return 0
 }

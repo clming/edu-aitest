@@ -70,6 +70,8 @@ func main() {
 		{
 			student.GET("", middleware.JWTAuth(), handler.GetStudentList)
 			student.GET("/:id", middleware.JWTAuth(), handler.GetStudentDetail)
+			student.POST("", middleware.JWTAuth(), handler.CreateStudent)
+			student.PUT("/:id", middleware.JWTAuth(), handler.UpdateStudent)
 		}
 
 		// 学习报告

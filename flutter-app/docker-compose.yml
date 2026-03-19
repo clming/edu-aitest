@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  # Flutter Web 应用
+  flutter-web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: edu-flutter-web
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - edu-network
+    restart: unless-stopped
+
+  # 后端服务（引用）
+  backend:
+    external: true
+    networks:
+      - edu-network
+
+networks:
+  edu-network:
+    external: true

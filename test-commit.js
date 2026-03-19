@@ -22,11 +22,12 @@ function testCommit() {
   console.log("✅ 测试通过！");
   console.log("");
   
-  // 🐛 BUG: 这里故意制造一个除零错误
-  const testValue = 100 / 0;
+  // ✅ FIX: 修复除零错误，改为正常计算
+  const testValue = 100 / 2;
   console.log(`测试值：${testValue}`);
   
-  // 🐛 BUG: 这里故意访问未定义的变量
+  // ✅ FIX: 修复未定义变量，定义为有效值
+  const undefinedVariable = "已修复";
   console.log(`未定义变量：${undefinedVariable}`);
   
   return {

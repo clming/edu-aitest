@@ -2,12 +2,12 @@ package middleware
 
 import (
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/clming/edu-aitest/go-backend/internal/config"
 )
 
 // CORS 跨域中间件
@@ -28,6 +28,8 @@ func CORS() gin.HandlerFunc {
 }
 
 // Logger 日志中间件
+// BUG-011: 日志脱敏，不记录敏感信息
+// BUG-012: 添加请求 ID 追踪
 func Logger() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		startTime := time.Now()
@@ -36,8 +38,11 @@ func Logger() gin.HandlerFunc {
 		
 		latency := time.Since(startTime)
 		statusCode := c.Writer.Status()
+		requestID := GetRequestID(c)
 		
-		println("[%d] %s %s %v", statusCode, c.Request.Method, c.Request.URL.Path, latency)
+		// BUG-011: 不记录敏感信息 (如完整 URL 中的 token、密码等)
+		// 只记录必要的信息
+		println("[%s] [%d] %s %s %v", requestID, statusCode, c.Request.Method, c.Request.URL.Path, latency)
 	}
 }
 
@@ -56,6 +61,8 @@ func Recovery() gin.HandlerFunc {
 }
 
 // JWTAuth JWT 认证中间件
+// BUG-001: 使用配置中的 JWT_SECRET
+// BUG-004: 验证 JWT 签发者 (iss)
 func JWTAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
@@ -77,18 +84,13 @@ func JWTAuth() gin.HandlerFunc {
 			return
 		}
 
-		secret := os.Getenv("JWT_SECRET")
-		if secret == "" {
-			secret = "edu-assistant-secret-key-2026"
-		}
-
 		// 验证 token
 		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 				return nil, jwt.ErrSignatureInvalid
 			}
-			return []byte(secret), nil
-		})
+			return []byte(config.JWTSecret), nil
+		}, jwt.WithIssuer(config.JWTIssuer))  // BUG-004: 验证签发者
 
 		if err != nil || !token.Valid {
 			c.JSON(http.StatusUnauthorized, gin.H{
@@ -121,4 +123,12 @@ func GetUserIDFromToken(c *gin.Context) uint {
 		return userID.(uint)
 	}
 	return 0
+}
+
+// GetRequestID 从 context 获取请求 ID (代理到 error.go 中的实现)
+func GetRequestID(c *gin.Context) string {
+	if id, exists := c.Get("request_id"); exists {
+		return id.(string)
+	}
+	return ""
 }

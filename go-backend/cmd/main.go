@@ -38,8 +38,10 @@ func main() {
 
 	// 中间件
 	r.Use(middleware.CORS())
+	r.Use(middleware.RequestID())  // BUG-012: 请求 ID 追踪
 	r.Use(middleware.Logger())
 	r.Use(middleware.Recovery())
+	r.Use(middleware.ErrorMiddleware())  // BUG-008: 统一错误处理
 
 	// 健康检查
 	r.GET("/health", handler.HealthCheck)
@@ -50,7 +52,8 @@ func main() {
 		// 认证相关
 		auth := v1.Group("/auth")
 		{
-			auth.POST("/login", handler.Login)
+			// BUG-003: 登录接口添加限流保护
+			auth.POST("/login", middleware.LoginRateLimit(), handler.Login)
 			auth.POST("/register", handler.Register)
 			auth.POST("/logout", middleware.JWTAuth(), handler.Logout)
 		}

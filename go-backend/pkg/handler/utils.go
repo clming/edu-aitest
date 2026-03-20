@@ -13,6 +13,14 @@ func getUserIDFromToken(c *gin.Context) uint {
 	return middleware.GetUserIDFromToken(c)
 }
 
+// getUserRoleFromToken 从 JWT token 中获取用户角色
+func getUserRoleFromToken(c *gin.Context) string {
+	if role, exists := c.Get("role"); exists {
+		return role.(string)
+	}
+	return ""
+}
+
 // parseTime 解析时间字符串
 func parseTime(timeStr string) (time.Time, error) {
 	// 尝试多种格式

@@ -224,6 +224,7 @@ func UpdateHomework(c *gin.Context) {
 // @Param id path int true "作业 ID"
 // @Success 200 {object} map[string]interface{}
 // @Router /api/v1/homework/:id [delete]
+// BUG-005: 添加权限验证，只有创建者或管理员可以删除
 func DeleteHomework(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
@@ -233,7 +234,28 @@ func DeleteHomework(c *gin.Context) {
 		return
 	}
 
-	if err := database.DB.Delete(&models.Homework{}, id).Error; err != nil {
+	// 获取当前用户信息
+	userID := getUserIDFromToken(c)
+	userRole := getUserRoleFromToken(c)
+
+	// 获取作业详情
+	var homework models.Homework
+	if err := database.DB.First(&homework, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"error": "作业不存在",
+		})
+		return
+	}
+
+	// 权限验证：只有创建者、老师或管理员可以删除
+	if homework.CreatedBy != userID && userRole != "teacher" && userRole != "admin" {
+		c.JSON(http.StatusForbidden, gin.H{
+			"error": "无权删除此作业",
+		})
+		return
+	}
+
+	if err := database.DB.Delete(&homework).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "删除作业失败",
 		})

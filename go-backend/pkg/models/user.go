@@ -5,6 +5,7 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
+	"github.com/clming/edu-aitest/go-backend/internal/config"
 )
 
 type User struct {
@@ -25,8 +26,9 @@ func (User) TableName() string {
 }
 
 // SetPassword 设置加密密码
+// BUG-002: 使用更高的 bcrypt 成本因子 (12 代替默认的 10)
 func (u *User) SetPassword(password string) error {
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), config.BcryptCost)
 	if err != nil {
 		return err
 	}

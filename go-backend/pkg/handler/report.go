@@ -39,6 +39,7 @@ type DailyStat struct {
 // @Param student_id query int true "学生 ID"
 // @Success 200 {object} map[string]interface{}
 // @Router /api/v1/reports/weekly [get]
+// BUG-007: 添加权限验证，只有家长、老师本人可以查看
 func GetWeeklyReport(c *gin.Context) {
 	studentIDStr := c.Query("student_id")
 	if studentIDStr == "" {
@@ -52,6 +53,17 @@ func GetWeeklyReport(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": "无效的学生 ID",
+		})
+		return
+	}
+
+	// 权限验证
+	userID := getUserIDFromToken(c)
+	userRole := getUserRoleFromToken(c)
+	
+	if !canAccessStudentReport(userRole, userID, uint(studentID)) {
+		c.JSON(http.StatusForbidden, gin.H{
+			"error": "无权查看此学生的报告",
 		})
 		return
 	}
@@ -141,6 +153,7 @@ func GetWeeklyReport(c *gin.Context) {
 // @Param student_id query int true "学生 ID"
 // @Success 200 {object} map[string]interface{}
 // @Router /api/v1/reports/monthly [get]
+// BUG-007: 添加权限验证
 func GetMonthlyReport(c *gin.Context) {
 	studentIDStr := c.Query("student_id")
 	if studentIDStr == "" {
@@ -154,6 +167,17 @@ func GetMonthlyReport(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": "无效的学生 ID",
+		})
+		return
+	}
+
+	// 权限验证
+	userID := getUserIDFromToken(c)
+	userRole := getUserRoleFromToken(c)
+	
+	if !canAccessStudentReport(userRole, userID, uint(studentID)) {
+		c.JSON(http.StatusForbidden, gin.H{
+			"error": "无权查看此学生的报告",
 		})
 		return
 	}
@@ -233,4 +257,33 @@ func GetMonthlyReport(c *gin.Context) {
 		"end_date":   now.Format("2006-01-02"),
 		"data":       reportData,
 	})
+}
+
+// canAccessStudentReport 检查用户是否有权查看学生报告
+// BUG-007: 权限验证辅助函数
+func canAccessStudentReport(userRole string, userID, studentID uint) bool {
+	// 管理员和老师可以查看所有学生报告
+	if userRole == "admin" || userRole == "teacher" {
+		return true
+	}
+	
+	// 家长只能查看自己孩子的报告 (需要检查 parent_id)
+	if userRole == "parent" {
+		var student models.Student
+		if err := database.DB.Where("id = ? AND parent_id = ?", studentID, userID).First(&student).Error; err == nil {
+			return true
+		}
+		return false
+	}
+	
+	// 学生只能查看自己的报告
+	if userRole == "student" {
+		var student models.Student
+		if err := database.DB.Where("id = ? AND user_id = ?", studentID, userID).First(&student).Error; err == nil {
+			return true
+		}
+		return false
+	}
+	
+	return false
 }

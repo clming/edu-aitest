@@ -2,11 +2,11 @@ package handler
 
 import (
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/clming/edu-aitest/go-backend/internal/config"
 	"github.com/clming/edu-aitest/go-backend/internal/database"
 	"github.com/clming/edu-aitest/go-backend/pkg/models"
 )
@@ -34,11 +34,25 @@ type RegisterRequest struct {
 // @Param request body LoginRequest true "登录信息"
 // @Success 200 {object} map[string]interface{}
 // @Router /api/v1/auth/login [post]
+// BUG-003: 添加登录失败锁定机制
 func Login(c *gin.Context) {
 	var req LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(),
+			"error": "请求参数错误",
+		})
+		return
+	}
+
+	// BUG-003: 检查是否被锁定
+	ctx := c.Request.Context()
+	lockKey := database.LoginAttemptKey(req.Username)
+	
+	// 检查是否已被锁定
+	isLocked, _ := database.CacheExists(ctx, lockKey)
+	if isLocked {
+		c.JSON(http.StatusTooManyRequests, gin.H{
+			"error": "账户已被锁定，请 15 分钟后再试",
 		})
 		return
 	}
@@ -54,11 +68,23 @@ func Login(c *gin.Context) {
 
 	// 验证密码
 	if !user.CheckPassword(req.Password) {
+		// BUG-003: 记录失败次数
+		failCount, _ := database.CacheIncrement(ctx, lockKey, 15*time.Minute)
+		if failCount >= 5 {
+			c.JSON(http.StatusTooManyRequests, gin.H{
+				"error": "尝试次数过多，账户已被锁定 15 分钟",
+			})
+			return
+		}
+		
 		c.JSON(http.StatusUnauthorized, gin.H{
 			"error": "用户名或密码错误",
 		})
 		return
 	}
+
+	// 登录成功，清除失败计数
+	database.CacheDelete(ctx, lockKey)
 
 	// 生成 JWT token
 	token, err := generateToken(user.ID, user.Username, user.Role)
@@ -161,19 +187,18 @@ func Logout(c *gin.Context) {
 }
 
 // generateToken 生成 JWT token
+// BUG-001: 使用配置中的 JWT_SECRET，不允许默认值
+// BUG-004: 添加 iss (签发者) 声明
+// BUG-014: 使用常量定义有效期
 func generateToken(userID uint, username, role string) (string, error) {
-	secret := os.Getenv("JWT_SECRET")
-	if secret == "" {
-		secret = "edu-assistant-secret-key-2026"
-	}
-
 	claims := jwt.MapClaims{
 		"user_id":  userID,
 		"username": username,
 		"role":     role,
-		"exp":      time.Now().Add(time.Hour * 24 * 7).Unix(), // 7 天有效期
+		"exp":      time.Now().Add(time.Hour * config.TokenExpireHours).Unix(),
+		"iss":      config.JWTIssuer,  // BUG-004: 添加签发者
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString([]byte(secret))
+	return token.SignedString([]byte(config.JWTSecret))
 }

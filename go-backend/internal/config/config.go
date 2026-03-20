@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"log"
 	"os"
 )
@@ -12,12 +13,31 @@ const (
 	TokenExpireHours = 24 * 7  // BUG-014: Token 有效期 (7 天)
 )
 
+// 数据库配置常量
+const (
+	DBHost     = "mysql-2a840bd18e4b-public.rds.volces.com"
+	DBPort     = "33060"
+	DBName     = "edu_assistant"
+	DBUser     = "openclaw-edutest"
+	DBPassword = "EZi3fxB9Kpqyap%Dm"
+)
+
 type Config struct {
 	DatabaseURL string
+	DatabaseConfig DatabaseConfig
 	RedisURL    string
 	JWTSecret   string
 	Port        string
 	Env         string
+}
+
+// DatabaseConfig 数据库详细配置
+type DatabaseConfig struct {
+	Host     string
+	Port     string
+	User     string
+	Password string
+	DBName   string
 }
 
 func Load() *Config {
@@ -28,8 +48,27 @@ func Load() *Config {
 	
 	env := getEnv("ENV", "development")
 	
+	// 构建 MySQL 连接字符串
+	// 格式：user:password@tcp(host:port)/dbname?charset=utf8mb4&parseTime=True&loc=Local
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local&interpolateParams=true",
+		DBUser,
+		DBPassword,
+		DBHost,
+		DBPort,
+		DBName,
+	)
+	
+	dbConfig := DatabaseConfig{
+		Host:     DBHost,
+		Port:     DBPort,
+		User:     DBUser,
+		Password: DBPassword,
+		DBName:   DBName,
+	}
+	
 	return &Config{
-		DatabaseURL: getEnv("DATABASE_URL", "postgres://localhost:5432/edu_assistant?sslmode=disable"),
+		DatabaseURL: dsn,
+		DatabaseConfig: dbConfig,
 		RedisURL:    getEnv("REDIS_URL", "redis://localhost:6379"),
 		JWTSecret:   jwtSecret,  // BUG-001: 不允许默认值
 		Port:        getEnv("PORT", "8080"),

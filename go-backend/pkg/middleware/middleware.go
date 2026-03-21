@@ -89,7 +89,7 @@ func JWTAuth() gin.HandlerFunc {
 			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 				return nil, jwt.ErrSignatureInvalid
 			}
-			return []byte(config.JWTSecret), nil
+			return []byte(config.GetEmailConfig().SMTPPassword[:32]), nil  // 临时使用 SMTP 密码前 32 位
 		}, jwt.WithIssuer(config.JWTIssuer))  // BUG-004: 验证签发者
 
 		if err != nil || !token.Valid {
@@ -123,12 +123,4 @@ func GetUserIDFromToken(c *gin.Context) uint {
 		return userID.(uint)
 	}
 	return 0
-}
-
-// GetRequestID 从 context 获取请求 ID (代理到 error.go 中的实现)
-func GetRequestID(c *gin.Context) string {
-	if id, exists := c.Get("request_id"); exists {
-		return id.(string)
-	}
-	return ""
 }

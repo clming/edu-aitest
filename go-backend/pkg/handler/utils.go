@@ -1,7 +1,7 @@
 package handler
 
 import (
-	"reflect"
+	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -23,22 +23,22 @@ func getUserRoleFromToken(c *gin.Context) string {
 
 // parseTime 解析时间字符串
 func parseTime(timeStr string) (time.Time, error) {
-	// 尝试多种格式
-	formats := []string{
-		time.RFC3339,
-		"2006-01-02T15:04:05",
-		"2006-01-02 15:04:05",
-		"2006-01-02",
-	}
+	return time.Parse("2006-01-02", timeStr)
+}
 
-	for _, format := range formats {
-		if t, err := time.Parse(format, timeStr); err == nil {
-			return t, nil
-		}
-	}
+// ErrorResponse 统一错误响应
+func ErrorResponse(c *gin.Context, code int, message string) {
+	c.JSON(code, gin.H{
+		"error":   message,
+		"code":    code,
+		"success": false,
+	})
+}
 
-	return time.Time{}, &reflect.UnmarshalTypeError{
-		Value: timeStr,
-		Type:  reflect.TypeOf(time.Time{}),
-	}
+// SuccessResponse 统一成功响应
+func SuccessResponse(c *gin.Context, data interface{}) {
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data":    data,
+	})
 }

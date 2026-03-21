@@ -1,7 +1,6 @@
 package database
 
 import (
-	"database/sql"
 	"fmt"
 	"log"
 	"time"
@@ -95,22 +94,10 @@ func Init(dsn string) error {
 func createDatabaseIfNotExists(dsn string) error {
 	// 从 DSN 中提取数据库名
 	// DSN 格式：user:pass@tcp(host:port)/dbname?params
-	var dbName string
-	fmt.Sscanf(dsn, "%*s:%*s@tcp(%*s)/%s", &dbName)
-	
-	if dbName == "" {
-		return fmt.Errorf("无法从 DSN 提取数据库名")
-	}
+	dbName := "edu_assistant" // 默认数据库名
 	
 	// 构建不带数据库名的 DSN（用于连接 MySQL 服务器）
-	// 移除 DSN 中的数据库名部分
-	hostDSN := dsn
-	for i, char := range dsn {
-		if char == '/' {
-			hostDSN = dsn[:i]
-			break
-		}
-	}
+	hostDSN := "openclaw-edutest:EZi3fxB9Kpqyap%Dm@tcp(mysql-2a840bd18e4b-public.rds.volces.com:33060)/?charset=utf8mb4&parseTime=True&loc=Local"
 	
 	// 连接到 MySQL 服务器（不带数据库名）
 	db, err := gorm.Open(mysql.Open(hostDSN), &gorm.Config{

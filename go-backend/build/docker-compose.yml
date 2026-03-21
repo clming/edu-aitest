@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  # Go 后端服务
+  backend:
+    build:
+      context: ..
+      dockerfile: build/Dockerfile
+    container_name: edu-backend
+    restart: always
+    environment:
+      # 数据库配置
+      - DATABASE_URL=openclaw-edutest:EZi3fxB9Kpqyap%Dm@tcp(mysql-2a840bd18e4b-public.rds.volces.com:33060)/edu_assistant?charset=utf8mb4&parseTime=True&loc=Local&interpolateParams=true
+      - JWT_SECRET=edu-assistant-production-secret-key-2026-change-me
+      - ENV=production
+      - PORT=8080
+    ports:
+      - "8080:8080"
+    networks:
+      - edu-network
+    depends_on:
+      - redis
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    volumes:
+      - ../logs:/app/logs
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Redis 缓存服务
+  redis:
+    image: redis:7-alpine
+    container_name: edu-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    networks:
+      - edu-network
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+networks:
+  edu-network:
+    driver: bridge
+
+volumes:
+  redis-data:

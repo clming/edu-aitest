@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -200,5 +201,5 @@ func generateToken(userID uint, username, role string) (string, error) {
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString([]byte(config.JWTSecret))
+	return token.SignedString([]byte(os.Getenv("JWT_SECRET")))
 }

@@ -12,7 +12,7 @@ type Report struct {
 	Type       string         `gorm:"size:20;not null" json:"type"` // weekly, monthly
 	StartTime  time.Time      `gorm:"not null" json:"start_time"`
 	EndTime    time.Time      `gorm:"not null" json:"end_time"`
-	Data       string         `gorm:"type:jsonb" json:"data"` // JSON 格式的报告数据
+	Data       string         `gorm:"type:json" json:"data"` // JSON 格式的报告数据（MySQL 兼容）
 	CreatedAt  time.Time      `json:"created_at"`
 	UpdatedAt  time.Time      `json:"updated_at"`
 	DeletedAt  gorm.DeletedAt `gorm:"index" json:"-"`

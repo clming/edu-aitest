@@ -23,14 +23,22 @@ func main() {
 	// 加载配置
 	cfg := config.Load()
 
+	// 根据环境变量设置 Gin 模式
+	if cfg.Env == "production" {
+		gin.SetMode(gin.ReleaseMode)
+		log.Println("🔒 运行模式：生产环境 (Release)")
+	} else {
+		log.Println("🔧 运行模式：开发环境 (Debug)")
+	}
+
 	// 初始化数据库
 	if err := database.Init(cfg.DatabaseURL); err != nil {
-		log.Fatalf("数据库初始化失败：%v", err)
+		log.Fatalf("❌ 数据库初始化失败：%v", err)
 	}
 
 	// 初始化 Redis
 	if err := database.InitRedis(cfg.RedisURL); err != nil {
-		log.Fatalf("Redis 初始化失败：%v", err)
+		log.Fatalf("❌ Redis 初始化失败：%v", err)
 	}
 
 	// 创建 Gin 路由
@@ -94,8 +102,15 @@ func main() {
 		port = "8080"
 	}
 
-	log.Printf("🚀 服务启动在端口 %s", port)
+	log.Printf("============================================================")
+	log.Printf("🚀 教育助手 API 服务启动")
+	log.Printf("   端口：%s", port)
+	log.Printf("   环境：%s", cfg.Env)
+	log.Printf("   Swagger: http://localhost:%s/swagger/index.html", port)
+	log.Printf("   健康检查：http://localhost:%s/health", port)
+	log.Printf("============================================================")
+	
 	if err := r.Run(":" + port); err != nil {
-		log.Fatalf("服务启动失败：%v", err)
+		log.Fatalf("❌ 服务启动失败：%v", err)
 	}
 }

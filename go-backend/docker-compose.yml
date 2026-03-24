@@ -46,17 +46,16 @@ services:
     container_name: edu-backend
     ports:
       - "8080:8080"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
-      DATABASE_URL: postgres://postgres:postgres@postgres:5432/edu_assistant?sslmode=disable
-      REDIS_URL: redis://redis:6379
-      JWT_SECRET: edu-assistant-secret-key-2026
+      # 使用远程 MySQL 数据库
+      DATABASE_URL: openclaw-edutest:EZi3fxB9Kpqyap%Dm@tcp(mysql-2a840bd18e4b-public.rds.volces.com:33060)/edu_assistant?charset=utf8mb4&parseTime=True&loc=Local
+      # 使用宿主机本地 Redis
+      REDIS_URL: redis://host.docker.internal:6379
+      JWT_SECRET: edu-assistant-production-secret-2026
       PORT: 8080
       ENV: production
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
     volumes:
       - ./logs:/app/logs
     networks:

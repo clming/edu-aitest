@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
-import 'providers/auth_provider.dart';
-import 'screens/login_screen.dart';
-import 'screens/register_screen.dart';
-import 'screens/home_screen.dart';
 
+import 'config/theme_config.dart';
+import 'config/router_config.dart';
+import 'providers/auth_provider.dart';
+import 'services/storage_service.dart';
+
+/// 教育助手应用入口
+/// 
+/// 支持 iOS、Android、Web 三端合一
+/// 参考作业帮家长版设计
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
@@ -20,70 +24,24 @@ void main() async {
   );
 }
 
-final _rootNavigatorKey = GlobalKey<NavigatorState>();
-final _shellNavigatorKey = GlobalKey<NavigatorState>();
-
-final GoRouter _router = GoRouter(
-  navigatorKey: _rootNavigatorKey,
-  initialLocation: '/login',
-  routes: [
-    GoRoute(
-      path: '/login',
-      name: 'login',
-      builder: (context, state) => const LoginScreen(),
-    ),
-    GoRoute(
-      path: '/register',
-      name: 'register',
-      builder: (context, state) => const RegisterScreen(),
-    ),
-    ShellRoute(
-      navigatorKey: _shellNavigatorKey,
-      builder: (context, state, child) => child,
-      routes: [
-        GoRoute(
-          path: '/home',
-          name: 'home',
-          builder: (context, state) => const HomeScreen(),
-        ),
-      ],
-    ),
-  ],
-  redirect: (context, state) {
-    final authState = context.read(authProvider);
-    final isAuthenticated = authState.isAuthenticated;
-    final isLoggingIn = state.matchedLocation == '/login';
-    final isRegistering = state.matchedLocation == '/register';
-
-    if (!isAuthenticated && !isLoggingIn && !isRegistering) {
-      return '/login';
-    }
-
-    if (isAuthenticated && (isLoggingIn || isRegistering)) {
-      return '/home';
-    }
-
-    return null;
-  },
-);
-
+/// 应用根组件
 class EduAssistantApp extends ConsumerWidget {
   const EduAssistantApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // 检查认证状态
+    // 监听认证状态变化
     ref.listen<AuthState>(
       authProvider,
       (previous, next) {
         if (previous?.isAuthenticated != next.isAuthenticated) {
           // 认证状态改变时刷新路由
-          _router.refresh();
+          // GoRouter 会自动处理重定向
         }
       },
     );
 
-    // 初始化时检查认证
+    // 初始化时检查认证状态
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(authProvider.notifier).checkAuth();
     });
@@ -91,41 +49,12 @@ class EduAssistantApp extends ConsumerWidget {
     return MaterialApp.router(
       title: '教育助手',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.blue,
-          brightness: Brightness.light,
-        ),
-        useMaterial3: true,
-        cardTheme: CardTheme(
-          elevation: 2,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-        inputDecorationTheme: InputDecorationTheme(
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 12,
-          ),
-        ),
-        elevatedButtonTheme: ElevatedButtonThemeData(
-          style: ElevatedButton.styleFrom(
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-            padding: const EdgeInsets.symmetric(
-              horizontal: 24,
-              vertical: 12,
-            ),
-          ),
-        ),
-      ),
-      routerConfig: _router,
+      
+      // 应用主题
+      theme: AppTheme.lightTheme,
+      
+      // 路由配置
+      routerConfig: ref.watch(goRouterProvider),
     );
   }
 }

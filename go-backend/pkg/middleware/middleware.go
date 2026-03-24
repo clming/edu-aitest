@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -42,7 +43,7 @@ func Logger() gin.HandlerFunc {
 		
 		// BUG-011: 不记录敏感信息 (如完整 URL 中的 token、密码等)
 		// 只记录必要的信息
-		println("[%s] [%d] %s %s %v", requestID, statusCode, c.Request.Method, c.Request.URL.Path, latency)
+		log.Printf("[%s] [%d] %s %s %v", requestID, statusCode, c.Request.Method, c.Request.URL.Path, latency)
 	}
 }
 

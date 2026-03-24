@@ -1,11 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
 import '../providers/auth_provider.dart';
 import '../providers/homework_provider.dart';
+import '../widgets/common_widgets.dart';
+import '../config/theme_config.dart';
 import 'homework_list_screen.dart';
+import 'student_list_screen.dart';
 import 'profile_screen.dart';
+import 'report_screen.dart';
 
+/// 首页
+/// 
+/// 包含底部导航栏，支持切换：
+/// - 仪表盘 (首页)
+/// - 作业
+/// - 学生
+/// - 报告
+/// - 我的
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
@@ -19,6 +32,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   final List<Widget> _screens = [
     const DashboardScreen(),
     const HomeworkListScreen(),
+    const StudentListScreen(),
+    const ReportScreen(),
     const ProfileScreen(),
   ];
 
@@ -34,7 +49,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _screens[_currentIndex],
+      body: IndexedStack(
+        index: _currentIndex,
+        children: _screens,
+      ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _currentIndex,
         onDestinationSelected: (index) {
@@ -54,6 +72,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             label: '作业',
           ),
           NavigationDestination(
+            icon: Icon(Icons.people_outline),
+            selectedIcon: Icon(Icons.people),
+            label: '学生',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.assessment_outlined),
+            selectedIcon: Icon(Icons.assessment),
+            label: '报告',
+          ),
+          NavigationDestination(
             icon: Icon(Icons.person_outline),
             selectedIcon: Icon(Icons.person),
             label: '我的',
@@ -64,6 +92,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 }
 
+/// 仪表盘屏幕
+/// 
+/// 显示学习概览、统计数据、待完成作业等
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
 
@@ -72,13 +103,14 @@ class DashboardScreen extends ConsumerWidget {
     final authState = ref.watch(authProvider);
     final homeworkState = ref.watch(homeworkProvider);
     final user = authState.user;
+    final pendingHomework = homeworkState.getPendingHomework();
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('教育助手'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.notifications),
+            icon: const Icon(Icons.notifications_outlined),
             onPressed: () {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('暂无新通知')),
@@ -97,28 +129,7 @@ class DashboardScreen extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // 欢迎卡片
-              Card(
-                color: Theme.of(context).colorScheme.primaryContainer,
-                child: Padding(
-                  padding: const EdgeInsets.all(20.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '欢迎回来，${user?.username ?? "用户"}！',
-                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        '今天是学习的好日子，继续加油！💪',
-                        style: Theme.of(context).textTheme.bodyLarge,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+              _buildWelcomeCard(context, user),
               const SizedBox(height: 24),
 
               // 统计卡片
@@ -137,40 +148,59 @@ class DashboardScreen extends ConsumerWidget {
                 crossAxisSpacing: 12,
                 childAspectRatio: 1.5,
                 children: [
-                  _buildStatCard(
-                    context,
-                    '总作业数',
-                    homeworkState.homeworkList.length.toString(),
-                    Icons.assignment,
-                    Colors.blue,
+                  StatCard(
+                    icon: Icons.assignment,
+                    label: '总作业数',
+                    value: homeworkState.homeworkList.length.toString(),
+                    color: AppTheme.primaryColor,
+                    onTap: () {
+                      // 切换到作业标签
+                    },
                   ),
-                  _buildStatCard(
-                    context,
-                    '待完成',
-                    homeworkState.getPendingHomework().length.toString(),
-                    Icons.pending_actions,
-                    Colors.orange,
+                  StatCard(
+                    icon: Icons.pending_actions,
+                    label: '待完成',
+                    value: pendingHomework.length.toString(),
+                    color: AppTheme.warningColor,
+                    onTap: () {
+                      // 切换到作业标签
+                    },
                   ),
-                  _buildStatCard(
-                    context,
-                    '已完成',
-                    homeworkState.getCompletedHomework().length.toString(),
-                    Icons.check_circle,
-                    Colors.green,
+                  StatCard(
+                    icon: Icons.check_circle,
+                    label: '已完成',
+                    value: homeworkState.getCompletedHomework().length.toString(),
+                    color: AppTheme.successColor,
+                    onTap: () {
+                      // 切换到作业标签
+                    },
                   ),
-                  _buildStatCard(
-                    context,
-                    '科目数',
-                    homeworkState.homeworkList
+                  StatCard(
+                    icon: Icons.book,
+                    label: '科目数',
+                    value: homeworkState.homeworkList
                         .map((h) => h.subject)
                         .toSet()
                         .length
                         .toString(),
-                    Icons.book,
-                    Colors.purple,
+                    color: AppTheme.accentColor,
+                    onTap: () {
+                      // 查看科目分布
+                    },
                   ),
                 ],
               ),
+              const SizedBox(height: 24),
+
+              // 快捷操作
+              Text(
+                '快捷操作',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 12),
+              _buildQuickActions(context, user),
               const SizedBox(height: 24),
 
               // 待完成作业
@@ -185,7 +215,7 @@ class DashboardScreen extends ConsumerWidget {
                   ),
                   TextButton(
                     onPressed: () {
-                      // 切换到作业标签
+                      // 切换到作业标签 (索引 1)
                     },
                     child: const Text('查看全部'),
                   ),
@@ -194,25 +224,31 @@ class DashboardScreen extends ConsumerWidget {
               const SizedBox(height: 12),
               
               if (homeworkState.isLoading)
-                const Center(child: CircularProgressIndicator())
-              else if (homeworkState.getPendingHomework().isEmpty)
+                const LoadingWidget()
+              else if (pendingHomework.isEmpty)
                 Card(
                   child: Padding(
-                    padding: const EdgeInsets.all(24.0),
+                    padding: const EdgeInsets.all(32.0),
                     child: Center(
                       child: Column(
                         children: [
                           Icon(
                             Icons.celebration,
-                            size: 48,
+                            size: 64,
                             color: Colors.grey[400],
                           ),
                           const SizedBox(height: 16),
                           Text(
                             '太棒了！所有作业都已完成',
-                            style: TextStyle(
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
                               color: Colors.grey[600],
-                              fontSize: 16,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            '继续保持，你是最棒的！🎉',
+                            style: TextStyle(
+                              color: Colors.grey[500],
                             ),
                           ),
                         ],
@@ -221,66 +257,88 @@ class DashboardScreen extends ConsumerWidget {
                   ),
                 )
               else
-                ...homeworkState.getPendingHomework().take(3).map((homework) {
-                  return Card(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    child: ListTile(
-                      leading: CircleAvatar(
-                        backgroundColor: _getSubjectColor(homework.subject),
-                        child: Text(
-                          homework.subject.substring(0, 1).toUpperCase(),
-                          style: const TextStyle(color: Colors.white),
-                        ),
-                      ),
-                      title: Text(homework.title),
-                      subtitle: Text(
-                        '截止：${_formatDate(homework.deadline)}',
-                        style: TextStyle(
-                          color: _isUrgent(homework.deadline) 
-                            ? Colors.red 
-                            : Colors.grey,
-                        ),
-                      ),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () {
-                        // TODO: 跳转到作业详情
-                      },
-                    ),
-                  );
+                ...pendingHomework.take(5).map((homework) {
+                  return _buildHomeworkCard(context, homework);
                 }),
+              
+              const SizedBox(height: 16),
             ],
           ),
         ),
       ),
     );
   }
-
-  Widget _buildStatCard(
-    BuildContext context,
-    String label,
-    String value,
-    IconData icon,
-    Color color,
-  ) {
+  
+  Widget _buildWelcomeCard(BuildContext context, dynamic user) {
+    final now = DateTime.now();
+    final hour = now.hour;
+    String greeting;
+    
+    if (hour < 6) {
+      greeting = '夜深了，早点休息吧';
+    } else if (hour < 12) {
+      greeting = '早上好';
+    } else if (hour < 14) {
+      greeting = '中午好';
+    } else if (hour < 18) {
+      greeting = '下午好';
+    } else {
+      greeting = '晚上好';
+    }
+    
     return Card(
+      color: Theme.of(context).colorScheme.primaryContainer,
       child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.start,
+        padding: const EdgeInsets.all(20.0),
+        child: Row(
           children: [
-            Icon(icon, color: color, size: 32),
-            const Spacer(),
-            Text(
-              value,
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                fontWeight: FontWeight.bold,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '$greeting，${user?.username ?? "用户"}！',
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '今天是学习的好日子，继续加油！💪',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppTheme.getRoleColor(user?.role),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Text(
+                      AppTheme.getRoleName(user?.role),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-            Text(
-              label,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Colors.grey,
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.3),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: const Icon(
+                Icons.school,
+                size: 48,
+                color: Colors.white,
               ),
             ),
           ],
@@ -288,26 +346,206 @@ class DashboardScreen extends ConsumerWidget {
       ),
     );
   }
-
-  Color _getSubjectColor(String subject) {
-    final colors = {
-      '数学': Colors.blue,
-      '语文': Colors.red,
-      '英语': Colors.green,
-      '物理': Colors.purple,
-      '化学': Colors.orange,
-      '生物': Colors.teal,
-    };
-    return colors[subject] ?? Colors.grey;
+  
+  Widget _buildQuickActions(BuildContext context, dynamic user) {
+    final actions = [
+      _QuickActionItem(
+        icon: Icons.add_circle_outline,
+        label: '添加作业',
+        color: AppTheme.primaryColor,
+        visible: user?.role == 'teacher',
+        onTap: () {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('功能开发中...')),
+          );
+        },
+      ),
+      _QuickActionItem(
+        icon: Icons.people_outline,
+        label: '学生管理',
+        color: AppTheme.successColor,
+        visible: user?.role == 'teacher' || user?.role == 'parent',
+        onTap: () {
+          context.go('/home/students');
+        },
+      ),
+      _QuickActionItem(
+        icon: Icons.assessment,
+        label: '学习报告',
+        color: AppTheme.accentColor,
+        visible: true,
+        onTap: () {
+          context.go('/home/report');
+        },
+      ),
+      _QuickActionItem(
+        icon: Icons.settings,
+        label: '设置',
+        color: AppTheme.primaryColor,
+        visible: true,
+        onTap: () {
+          // 跳转到设置页面
+        },
+      ),
+    ];
+    
+    return GridView.count(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      crossAxisCount: 4,
+      mainAxisSpacing: 12,
+      crossAxisSpacing: 12,
+      childAspectRatio: 0.8,
+      children: actions.where((action) => action.visible).map((action) {
+        return _buildQuickActionItem(context, action);
+      }).toList(),
+    );
   }
-
-  String _formatDate(DateTime date) {
-    return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+  
+  Widget _buildQuickActionItem(BuildContext context, _QuickActionItem action) {
+    return InkWell(
+      onTap: action.onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: action.color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              action.icon,
+              color: action.color,
+              size: 28,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            action.label,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              fontWeight: FontWeight.w500,
+            ),
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
   }
-
-  bool _isUrgent(DateTime deadline) {
-    final now = DateTime.now();
-    final difference = deadline.difference(now).inDays;
-    return difference <= 3;
+  
+  Widget _buildHomeworkCard(BuildContext context, dynamic homework) {
+    final isUrgent = DateUtils.isUrgent(homework.deadline);
+    
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: InkWell(
+        onTap: () {
+          context.go('/home/homework/${homework.id}');
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  CircleAvatar(
+                    backgroundColor: AppTheme.getSubjectColor(homework.subject),
+                    child: Text(
+                      homework.subject.substring(0, 1).toUpperCase(),
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          homework.title,
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          homework.subject,
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (isUrgent)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppTheme.warningColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: AppTheme.warningColor),
+                      ),
+                      child: const Text(
+                        '紧急',
+                        style: TextStyle(
+                          color: AppTheme.warningColor,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                homework.description,
+                style: Theme.of(context).textTheme.bodyMedium,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Icon(
+                    Icons.access_time,
+                    size: 16,
+                    color: isUrgent ? Colors.red : Colors.grey,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    '截止：${DateUtils.formatDate(homework.deadline)}',
+                    style: TextStyle(
+                      color: isUrgent ? Colors.red : Colors.grey[600],
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
+}
+
+class _QuickActionItem {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final bool visible;
+  final VoidCallback onTap;
+  
+  _QuickActionItem({
+    required this.icon,
+    required this.label,
+    required this.color,
+    this.visible = true,
+    required this.onTap,
+  });
 }

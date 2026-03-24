@@ -1,8 +1,10 @@
 package database
 
 import (
+	"context"
 	"fmt"
 	"log"
+	"os"
 	"time"
 
 	"gorm.io/driver/mysql"
@@ -10,6 +12,7 @@ import (
 	"gorm.io/gorm/logger"
 
 	"github.com/redis/go-redis/v9"
+	"github.com/clming/edu-aitest/go-backend/internal/config"
 	"github.com/clming/edu-aitest/go-backend/pkg/models"
 )
 
@@ -40,8 +43,15 @@ func Init(dsn string) error {
 	// 重试逻辑：最多重试 3 次
 	maxRetries := 3
 	for i := 0; i < maxRetries; i++ {
+		// 根据环境设置日志级别
+		env := os.Getenv("ENV")
+		logMode := logger.Warn
+		if env != "production" {
+			logMode = logger.Info
+		}
+		
 		DB, err = gorm.Open(mysql.Open(dsn), &gorm.Config{
-			Logger: logger.Default.LogMode(logger.Warn), // 减少日志噪音
+			Logger: logger.Default.LogMode(logMode),
 		})
 		if err == nil {
 			break
@@ -134,15 +144,24 @@ func createDatabaseIfNotExists(dsn string) error {
 func InitRedis(redisURL string) error {
 	opt, err := redis.ParseURL(redisURL)
 	if err != nil {
-		log.Printf("❌ Redis URL 解析失败")
+		log.Printf("❌ Redis URL 解析失败：%v", err)
 		return fmt.Errorf("Redis 配置错误")
 	}
 
 	Redis = redis.NewClient(opt)
+	
+	// 检查客户端是否创建成功
+	if Redis == nil {
+		log.Printf("❌ Redis 客户端创建失败")
+		return fmt.Errorf("Redis 客户端创建失败")
+	}
 
-	// 测试连接
-	if err := Redis.Ping(nil).Err(); err != nil {
-		log.Printf("❌ Redis 连接失败")
+	// 测试连接（带超时）
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	
+	if err := Redis.Ping(ctx).Err(); err != nil {
+		log.Printf("❌ Redis 连接失败：%v", err)
 		return fmt.Errorf("Redis 连接失败")
 	}
 
